@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accounting Pro - Invoices</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4361ee',
+                        secondary: '#3f37c9',
+                        accent: '#4cc9f0',
+                        dark: '#1e1b4b',
+                        light: '#f0f9ff'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .account-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .navbar {
+            transition: all 0.3s ease;
+        }
+        .invoice-row:hover {
+            background-color: #f0f9ff;
+        }
+        .nav-item:hover {
+            background-color: #3f37c9;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex flex-col h-screen">
+    <!-- Navbar -->
+    <nav class="navbar bg-dark text-white p-3 flex items-center justify-between shadow-md fixed top-0 w-full z-50">
+        <div class="flex items-center">
+            <a href="index.html"><img src="logo.png" alt="Accounting Pro Logo" class="h-20 w-auto mr-3"></a>
+        </div>
+        <div class="flex space-x-4">
+            <a href="index.html" class="nav-item flex items-center p-2 rounded-lg hover:bg-secondary">
+                <i class="fas fa-chart-pie mr-2"></i>
+                Dashboard
+            </a>
+            <a href="accounts.html" class="nav-item flex items-center p-2 rounded-lg hover:bg-secondary">
+                <i class="fas fa-wallet mr-2"></i>
+                Accounts
+            </a>
+            <a href="transactions.html" class="nav-item flex items-center p-2 rounded-lg hover:bg-secondary">
+                <i class="fas fa-exchange-alt mr-2"></i>
+                Transactions
+            </a>
+            <a href="invoices.html" class="nav-item flex items-center p-2 rounded-lg bg-primary text-white">
+                <i class="fas fa-file-invoice mr-2"></i>
+                Invoices
+            </a>
+            <a href="reports.html" class="nav-item flex items-center p-2 rounded-lg hover:bg-secondary">
+                <i class="fas fa-chart-bar mr-2"></i>
+                Reports
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="flex-1 overflow-auto mt-24">
+        <!-- Header -->
+        <header class="bg-white shadow-sm p-4 flex justify-between items-center">
+            <div class="relative">
+                <input type="text" placeholder="Search..." class="pl-10 pr-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button id="newInvoiceBtn" class="bg-primary text-white px-4 py-2 rounded-lg flex items-center">
+                    <i class="fas fa-plus mr-2"></i>
+                    New Invoice
+                </button>
+            </div>
+        </header>
+
+        <!-- Invoices Content -->
+        <main class="p-6">
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold">Invoices</h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="py-3 px-4 text-left">Invoice Number</th>
+                                <th class="py-3 px-4 text-left">Client</th>
+                                <th class="py-3 px-4 text-left">Date</th>
+                                <th class="py-3 px-4 text-left">Amount</th>
+                                <th class="py-3 px-4 text-left">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invoicesTable">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- New Invoice Modal -->
+    <div id="invoiceModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">New Invoice</h3>
+                <button id="closeInvoiceModal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="invoiceForm">
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2">Invoice Number</label>
+                    <input type="text" name="invoice_number" required class="w-full p-2 border rounded">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2">Client</label>
+                    <input type="text" name="client" required class="w-full p-2 border rounded">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2">Date</label>
+                    <input type="date" name="date" required class="w-full p-2 border rounded">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2">Amount</label>
+                    <input type="number" name="amount" step="0.01" required class="w-full p-2 border rounded">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2">Status</label>
+                    <select name="status" required class="w-full p-2 border rounded">
+                        <option value="pending">Pending</option>
+                        <option value="paid">Paid</option>
+                        <option value="overdue">Overdue</option>
+                    </select>
+                </div>
+                <div class="flex justify-end">
+                    <button type="button" id="cancelInvoice" class="mr-2 px-4 py-2 border border-gray-300 rounded">Cancel</button>
+                    <button type="submit" class="bg-primary text-white px-4 py-2 rounded">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
