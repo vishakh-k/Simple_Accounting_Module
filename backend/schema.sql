@@ -11,11 +11,16 @@ CREATE TABLE IF NOT EXISTS users (
 -- Accounts table
 CREATE TABLE IF NOT EXISTS accounts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
+    code TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
     type TEXT CHECK(type IN ('Asset', 'Liability', 'Equity', 'Revenue', 'Expense')) NOT NULL,
     balance REAL DEFAULT 0.00,
+    description TEXT,
+    is_active BOOLEAN DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    previous_balance REAL DEFAULT 0.00
+    previous_balance REAL DEFAULT 0.00,
+    UNIQUE(code, name)
 );
 
 CREATE TABLE IF NOT EXISTS transactions (

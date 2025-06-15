@@ -27,43 +27,68 @@ def token_required(f):
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
-    data = request.json
+    data = request.get_json()
+    print("Registration data received:", data)  # Debug log
+    
     required_fields = ['username', 'password', 'email']
     if not data or any(field not in data for field in required_fields):
         return jsonify({"error": "Missing required fields: username, password, email"}), 400
+    
     try:
+        print(f"Checking if user exists: {data['username']}")
         if get_user_by_username(data['username']):
+            print("Username already exists")  # Debug log
             return jsonify({"error": "Username already exists"}), 400
+            
+        print("Hashing password")  # Debug log
         hashed_password = generate_password_hash(data['password'])
+        print(f"Creating user: {data['username']}")  # Debug log
         user_id = create_user(data['username'], hashed_password, data['email'])
-        return jsonify({"id": user_id, "message": "User registered successfully"}), 201
+        print(f"User created with ID: {user_id}")  # Debug log
+        
+        return jsonify({
+            "id": user_id, 
+            "message": "User registered successfully",
+            "username": data['username']
+        }), 201
+        
     except Exception as e:
+        print(f"Registration error: {str(e)}")  # Debug log
         return jsonify({"error": f"Failed to register user: {str(e)}"}), 500
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
+    print("Login attempt with data:", data)  # Debug log
+    
     if not data or 'username' not in data or 'password' not in data:
+        print("Missing username or password in request")  # Debug log
         return jsonify({"error": "Username and password are required"}), 400
     
     try:
-        print(f"Attempting login for user: {data['username']}")
+        username = data['username']
+        password = data['password']
+        print(f"Attempting login for user: {username}")
         
         # Get user from database
-        user = get_user_by_username(data['username'])
+        user = get_user_by_username(username)
         if not user:
-            print("User not found")
+            print(f"User '{username}' not found in database")  # Debug log
             return jsonify({"error": "Invalid username or password"}), 401
             
-        print(f"User found: {user}")
+        print(f"User found: {user['username']} (ID: {user['id']})")  # Debug log
         
         # Verify password
         if 'password_hash' not in user:
-            print("No password_hash in user data")
+            print("ERROR: No password_hash in user data")  # Debug log
             return jsonify({"error": "Invalid username or password"}), 401
             
-        if not check_password_hash(user['password_hash'], data['password']):
-            print("Password verification failed")
+        print("Checking password hash...")  # Debug log
+        password_matches = check_password_hash(user['password_hash'], password)
+        print(f"Password check result: {password_matches}")  # Debug log
+        
+        if not password_matches:
+            print("Password verification failed")  # Debug log
             return jsonify({"error": "Invalid username or password"}), 401
             
         # Generate JWT token

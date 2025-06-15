@@ -25,27 +25,102 @@ def get_transactions_route():
 @transactions_bp.route('/transactions', methods=['POST'])
 def create_transaction_route():
     data = request.json
-    required_fields = ['date', 'description', 'debit_account', 'credit_account', 'amount', 'status']
+    print("Received transaction data:", data)  # Debug log
+    
+    # Check if this is a double-entry transaction
+    if 'entries' in data:
+        return create_double_entry_transaction(data)
+        
+    # Handle single transaction format
+    required_fields = ['date', 'description', 'debit_account', 'credit_account', 'amount']
     if not data or any(field not in data for field in required_fields):
-        return jsonify({"error": "Missing required fields: date, description, debit_account, credit_account, amount, status"}), 400
+        return jsonify({"error": "Missing required fields: date, description, debit_account, credit_account, amount"}), 400
+        
     try:
-        datetime.strptime(data['date'], '%Y-%m-%d')
+        # Set default status to 'posted' if not provided
+        status = data.get('status', 'posted')
+        
+        # Convert date to proper format if needed
+        date = data['date']
+        if not isinstance(date, str):
+            date = date.strftime('%Y-%m-%d')
+        else:
+            datetime.strptime(date, '%Y-%m-%d')  # Validate date format
+            
         amount = float(data['amount'])
+        
+        # Create the transaction
         transaction_id = create_transaction(
-            date=data['date'],
+            date=date,
             description=data['description'],
             debit_account=data['debit_account'],
             credit_account=data['credit_account'],
             amount=amount,
-            status=data['status']
+            status=status
         )
-        return jsonify({"id": transaction_id, "message": "Transaction created successfully"}), 201
+        return jsonify({
+            "id": transaction_id, 
+            "message": "Transaction created successfully"
+        }), 201
+        
     except ValueError as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"error": f"Invalid data format: {str(e)}"}), 400
     except Exception as e:
+        print(f"Error creating transaction: {str(e)}")  # Debug log
         return jsonify({"error": f"Failed to create transaction: {str(e)}"}), 500
 
-@transactions_bp.route('/transactions', methods=['POST'])
+def create_double_entry_transaction(data):
+    try:
+        if not data.get('entries') or len(data['entries']) < 2:
+            return jsonify({'error': 'Transaction must have at least 2 entries'}), 400
+            
+        # Start transaction
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Insert main transaction
+            cursor.execute("""
+                INSERT INTO transactions (date, reference, description, status)
+                VALUES (?, ?, ?, ?)
+            """, (
+                data.get('date', datetime.now().strftime('%Y-%m-%d')),
+                data.get('reference', ''),
+                data.get('description', ''),
+                data.get('status', 'posted')
+            ))
+            
+            transaction_id = cursor.lastrowid
+            
+            # Insert entries
+            for entry in data['entries']:
+                cursor.execute("""
+                    INSERT INTO transaction_entries 
+                    (transaction_id, account_id, debit, credit)
+                    VALUES (?, ?, ?, ?)
+                """, (
+                    transaction_id,
+                    entry['account_id'],
+                    entry.get('debit', 0),
+                    entry.get('credit', 0)
+                ))
+                
+            conn.commit()
+            return jsonify({'id': transaction_id, 'message': 'Transaction created successfully'}), 201
+            
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            cursor.close()
+            conn.close()
+            
+    except Exception as e:
+        print(f"Error in create_double_entry_transaction: {str(e)}")  # Debug log
+        return jsonify({'error': str(e)}), 500
+
+# This route is no longer needed as we've combined the functionality
+# into create_transaction_route
 def create_transaction():
     try:
         data = request.get_json()
