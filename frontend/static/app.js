@@ -1,88 +1,103 @@
-const newTransactionBtn = document.getElementById('newTransactionBtn');
-const addTransactionBtn = document.getElementById('addTransactionBtn');
-const transactionModal = document.getElementById('transactionModal');
-const closeModal = document.getElementById('closeModal');
-const cancelTransaction = document.getElementById('cancelTransaction');
-const transactionForm = document.getElementById('transactionForm');
-const debitAccountSelect = document.querySelector('select[name="debit_account"]');
-const creditAccountSelect = document.querySelector('select[name="credit_account"]');
-const transactionCount = document.getElementById('transactionCount');
-const totalTransactions = document.getElementById('totalTransactions');
-const statsCards = document.getElementById('statsCards');
-const transactionsTable = document.getElementById('transactionsTable');
-const accountSummary = document.getElementById('accountSummary');
-const newAccountBtn = document.getElementById('newAccountBtn');
-const accountModal = document.getElementById('accountModal');
-const closeAccountModal = document.getElementById('closeAccountModal');
-const cancelAccount = document.getElementById('cancelAccount');
-const accountForm = document.getElementById('accountForm');
-const accountsTable = document.getElementById('accountsTable');
-const newInvoiceBtn = document.getElementById('newInvoiceBtn');
-const addInvoiceBtn = document.getElementById('addInvoiceBtn');
-const invoiceModal = document.getElementById('invoiceModal');
-const closeInvoiceModal = document.getElementById('closeInvoiceModal');
-const cancelInvoice = document.getElementById('cancelInvoice');
-const invoiceForm = document.getElementById('invoiceForm');
-const invoicesTable = document.getElementById('invoicesTable');
-const generateReportBtn = document.getElementById('generateReportBtn');
-const addReportBtn = document.getElementById('addReportBtn');
-const reportModal = document.getElementById('reportModal');
-const closeReportModal = document.getElementById('closeReportModal');
-const cancelReport = document.getElementById('cancelReport');
-const reportForm = document.getElementById('reportForm');
+// Simple test to verify script is loaded
+console.log('app.js loaded successfully');
 
 // State
 let accounts = [];
 let transactions = [];
-let invoices = [];
 let isLoading = false;
 
-// Initialize the application
-async function initApp() {
-    console.log('Initializing application...');
-    showLoading(true);
+// DOM Elements
+let transactionForm, transactionFormContainer, debitAccountSelect, creditAccountSelect;
+let transactionCount, totalTransactions, statsCards, transactionsTable, accountSummary;
+let newAccountBtn, accountModal, accountForm, closeAccountModal, cancelAccount;
+
+// Initialize DOM elements
+function initElements() {
+    // Form elements
+    transactionForm = document.getElementById('transactionForm');
+    transactionFormContainer = document.getElementById('transactionFormContainer');
+    debitAccountSelect = document.querySelector('select[name="debit_account"]');
+    creditAccountSelect = document.querySelector('select[name="credit_account"]');
+    transactionCount = document.getElementById('transactionCount');
+    totalTransactions = document.getElementById('totalTransactions');
+    statsCards = document.getElementById('statsCards');
+    transactionsTable = document.getElementById('transactionsTable');
+    accountSummary = document.getElementById('accountSummary');
+    
+    // Account modal elements
+    newAccountBtn = document.getElementById('newAccountBtn');
+    accountModal = document.getElementById('accountModal');
+    accountForm = document.getElementById('accountForm');
+    closeAccountModal = document.getElementById('closeAccountModal');
+    cancelAccount = document.getElementById('cancelAccount');
+}
+
+// Show notification message
+function showNotification(message, type = 'info') {
+    // Create notification element if it doesn't exist
+    let notification = document.getElementById('notification');
+    if (!notification) {
+        notification = document.createElement('div');
+        notification.id = 'notification';
+        notification.className = 'fixed top-4 right-4 p-4 rounded shadow-lg text-white z-50 transition-all duration-300 transform translate-x-full';
+        document.body.appendChild(notification);
+    }
+    
+    // Set notification content and style based on type
+    notification.textContent = message;
+    notification.className = `fixed top-4 right-4 p-4 rounded shadow-lg text-white z-50 transition-all duration-300 ${
+        type === 'error' ? 'bg-red-500' : 
+        type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+    }`;
+    
+    // Show notification
+    setTimeout(() => {
+        notification.classList.remove('translate-x-full');
+        notification.classList.add('translate-x-0');
+    }, 10);
+    
+    // Hide notification after 5 seconds
+    setTimeout(() => {
+        notification.classList.remove('translate-x-0');
+        notification.classList.add('translate-x-full');
+    }, 5000);
+}
+
+// Format currency
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+    }).format(amount);
+}
+
+// Calculate percentage change
+function calculatePercentageChange(current, previous) {
+    if (previous === 0) return 0;
+    return ((current - previous) / Math.abs(previous) * 100).toFixed(1);
+}
+
+// Load transactions from the server
+async function loadTransactions() {
     try {
-        console.log('Loading data...');
-        await Promise.all([loadAccounts(), loadTransactions(), loadInvoices()]);
-        
-        const currentPath = window.location.pathname;
-        console.log('Current path:', currentPath);
-        
-        if (currentPath.includes('index.html') || currentPath === '/') {
-            console.log('Updating dashboard...');
-            updateStatsCards();
-            updateAccountSummary();
-            updateTransactionsTable();
-        } else if (currentPath.includes('accounts.html')) {
-            console.log('Updating accounts page...');
-            updateAccountsTable();
-        } else if (currentPath.includes('transactions.html')) {
-            console.log('Updating transactions page...');
-            updateTransactionsTable();
-        } else if (currentPath.includes('invoices.html')) {
-            console.log('Updating invoices page...');
-            updateInvoicesTable();
-        }
-        
-        console.log('Populating account selects...');
-        populateAccountSelects();
-        
-        console.log('Setting up event listeners...');
-        setupEventListeners();
-        
-        // Debug: Log button states
-        console.log('Button states:', {
-            newAccountBtn: !!newAccountBtn,
-            newTransactionBtn: !!newTransactionBtn,
-            newInvoiceBtn: !!newInvoiceBtn
+        const response = await fetch('/api/transactions', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
         });
         
+        if (response.ok) {
+            transactions = await response.json();
+            // Update the transactions table
+            updateTransactionsTable(transactions);
+            return transactions;
+        } else {
+            throw new Error('Failed to load transactions');
+        }
     } catch (error) {
-        console.error('Initialization error:', error);
-        showError('Failed to initialize application: ' + error.message);
-    } finally {
-        showLoading(false);
-        console.log('Initialization complete');
+        console.error('Error loading transactions:', error);
+        showNotification('Failed to load transactions', 'error');
+        return [];
     }
 }
 
@@ -386,25 +401,109 @@ function validateInvoiceForm(formData) {
     return true;
 }
 
+// Reset the form to its initial state
+function resetTransactionForm() {
+    if (transactionForm) {
+        // Set default date to today
+        const today = new Date().toISOString().split('T')[0];
+        const dateInput = transactionForm.querySelector('input[name="date"]');
+        if (dateInput) dateInput.value = today;
+        
+        // Reset other fields
+        transactionForm.reset();
+        
+        // Focus on the first input
+        const firstInput = transactionForm.querySelector('input, select');
+        if (firstInput) firstInput.focus();
+    }
+}
+
 // Setup event listeners
 function setupEventListeners() {
-    // Transaction modal
-    if (newTransactionBtn) {
-        newTransactionBtn.addEventListener('click', () => transactionModal.classList.remove('hidden'));
+    console.log('Setting up event listeners...');
+    
+    // Initialize form with today's date
+    if (transactionForm) {
+        // Set initial date to today
+        const today = new Date().toISOString().split('T')[0];
+        const dateInput = transactionForm.querySelector('input[name="date"]');
+        if (dateInput) dateInput.value = today;
     }
-    if (addTransactionBtn) {
-        addTransactionBtn.addEventListener('click', () => transactionModal.classList.remove('hidden'));
-    }
-    if (closeModal) {
-        closeModal.addEventListener('click', () => {
-            transactionModal.classList.add('hidden');
-            transactionForm.reset();
+    
+    // New Account Button and Modal
+    const newAccountBtn = document.getElementById('newAccountBtn');
+    const accountModal = document.getElementById('accountModal');
+    const closeAccountModal = document.getElementById('closeAccountModal');
+    const cancelAccount = document.getElementById('cancelAccount');
+    
+    console.log('Account elements:', { newAccountBtn, accountModal, closeAccountModal, cancelAccount });
+    
+    if (newAccountBtn && accountModal) {
+        newAccountBtn.addEventListener('click', () => {
+            console.log('New Account button clicked');
+            accountModal.classList.remove('hidden');
         });
     }
-    if (cancelTransaction) {
-        cancelTransaction.addEventListener('click', () => {
-            transactionModal.classList.add('hidden');
-            transactionForm.reset();
+    
+    if (closeAccountModal && accountModal) {
+        closeAccountModal.addEventListener('click', () => {
+            accountModal.classList.add('hidden');
+        });
+    }
+    
+    if (cancelAccount && accountModal) {
+        cancelAccount.addEventListener('click', () => {
+            accountModal.classList.add('hidden');
+        });
+    }
+    
+    // Transaction form submit handler
+    if (transactionForm) {
+        transactionForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Get form data
+            const formData = new FormData(transactionForm);
+            const data = Object.fromEntries(formData.entries());
+            
+            try {
+                // Show loading state
+                const submitBtn = transactionForm.querySelector('button[type="submit"]');
+                const originalBtnText = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = 'Saving...';
+                
+                // Send data to server
+                const response = await fetch('/api/transactions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    // Refresh transactions list
+                    await loadTransactions();
+                    // Reset form
+                    resetTransactionForm();
+                    // Show success message
+                    showNotification('Transaction added successfully!', 'success');
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to save transaction');
+                }
+            } catch (error) {
+                console.error('Error saving transaction:', error);
+                showNotification(error.message || 'Failed to save transaction', 'error');
+            } finally {
+                // Reset button state
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                }
+            }
         });
     }
     if (debitAccountSelect) {
@@ -448,8 +547,8 @@ function setupEventListeners() {
                     updateStatsCards();
                     updateTransactionsTable();
                     updateAccountSummary();
-                    transactionModal.classList.add('hidden');
-                    transactionForm.reset();
+                    hideTransactionModal();
+                    if (transactionForm) transactionForm.reset();
                     showError('Transaction added successfully!');
                 } else {
                     const errorData = await response.json();
@@ -484,36 +583,73 @@ function setupEventListeners() {
         accountForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (isLoading) return;
+            
             const formData = {
-                name: e.target.name.value,
+                code: e.target.code.value.trim(),
+                name: e.target.name.value.trim(),
                 type: e.target.type.value,
-                balance: parseFloat(e.target.balance.value)
+                description: e.target.description?.value?.trim() || '',
+                balance: parseFloat(e.target.balance.value) || 0
             };
+            
+            console.log('Submitting account data:', formData);
+            
             if (!validateAccountForm(formData)) return;
+            
             showLoading(true);
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn?.innerHTML || 'Save';
+            
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = 'Saving...';
+            }
+            
             try {
-                const response = await fetch('http://localhost:5000/api/accounts', {
+                const response = await fetch('/api/accounts', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
                     body: JSON.stringify(formData)
                 });
+                
+                console.log('Account creation response status:', response.status);
+                
                 if (response.ok) {
+                    const result = await response.json();
+                    console.log('Account created successfully:', result);
+                    
+                    // Refresh the accounts list
                     await loadAccounts();
+                    
+                    // Update UI
                     updateAccountsTable();
                     updateStatsCards();
                     updateAccountSummary();
+                    
+                    // Close modal and reset form
                     accountModal.classList.add('hidden');
                     accountForm.reset();
-                    showError('Account added successfully!');
+                    
+                    // Show success message
+                    showNotification('Account created successfully!', 'success');
                 } else {
-                    const errorData = await response.json();
-                    showError(`Error: ${errorData.error}`);
+                    const errorData = await response.json().catch(() => ({}));
+                    const errorMessage = errorData.error || `Server responded with status ${response.status}`;
+                    console.error('Error creating account:', errorMessage);
+                    showNotification(`Failed to create account: ${errorMessage}`, 'error');
                 }
             } catch (error) {
                 console.error('Error adding account:', error);
-                showError('Failed to add account');
+                showNotification('Failed to create account. Please try again.', 'error');
             } finally {
                 showLoading(false);
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                }
             }
         });
     }
@@ -631,10 +767,74 @@ function setupEventListeners() {
 
 console.log('app.js loaded');
 
+// Main initialization function
+async function init() {
+    console.log('Initializing application...');
+    showLoading(true);
+    
+    try {
+        // Load initial data
+        await Promise.all([
+            loadAccounts(),
+            loadTransactions()
+        ]);
+        
+        // Update UI
+        updateStatsCards();
+        updateAccountSummary();
+        updateTransactionsTable();
+        
+        // Setup event listeners
+        setupEventListeners();
+        
+        console.log('Application initialized successfully');
+    } catch (error) {
+        console.error('Initialization error:', error);
+        showNotification('Failed to initialize: ' + error.message, 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Main initialization function
+async function init() {
+    console.log('Initializing application...');
+    showLoading(true);
+    
+    try {
+        // Initialize DOM elements
+        initElements();
+        
+        // Load initial data
+        await Promise.all([
+            loadAccounts(),
+            loadTransactions()
+        ]);
+        
+        // Set up event listeners
+        setupEventListeners();
+        
+        // Update UI
+        updateStatsCards();
+        updateAccountSummary();
+        updateTransactionsTable();
+        
+        console.log('Application initialized successfully');
+    } catch (error) {
+        console.error('Initialization error:', error);
+        showNotification('Failed to initialize: ' + error.message, 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Initialize the application when DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM fully loaded and parsed');
-    initApp().catch(error => {
-        console.error('Error in initialization:', error);
-        showError('Failed to initialize application: ' + error.message);
+    
+    // Initialize the application
+    init().catch(error => {
+        console.error('Unhandled error during initialization:', error);
+        showNotification('Failed to initialize application', 'error');
     });
 });

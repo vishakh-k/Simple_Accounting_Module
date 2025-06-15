@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: simple-accounting
+    env: python
+    buildCommand: |
+      pip install --upgrade pip
+      cd backend && pip install -e .
+    startCommand: gunicorn backend.app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.13
+      - key: DATABASE_PATH
+        value: /opt/render/project/src/instance/accounting.db
+      - key: FLASK_APP
+        value: backend/app.py
+      - key: FLASK_ENV
+        value: production
+      - key: PYTHONPATH
+        value: ${PYTHONPATH}:/opt/render/project/src

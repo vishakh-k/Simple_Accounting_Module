@@ -37,6 +37,16 @@
         .nav-item:hover {
             background-color: #3f37c9;
         }
+        /* Modal transition */
+        #transactionModal {
+            transition: opacity 0.3s ease-in-out;
+            opacity: 0;
+            pointer-events: none;
+        }
+        #transactionModal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
     </style>
 </head>
 <body class="bg-gray-50 flex flex-col h-screen">
@@ -87,6 +97,68 @@
 
         <!-- Transactions Content -->
         <main class="p-6">
+            <!-- Transaction Form -->
+            <div class="bg-white rounded-xl shadow-md p-6 mb-6" id="transactionFormContainer">
+                <h2 class="text-xl font-semibold mb-4">New Transaction</h2>
+                <form id="transactionForm" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-1">Date</label>
+                            <input type="date" name="date" required 
+                                   class="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-1">Reference</label>
+                            <input type="text" name="reference" required 
+                                   class="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-gray-700 text-sm font-medium mb-1">Description</label>
+                            <input type="text" name="description" required 
+                                   class="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-1">Amount</label>
+                            <input type="number" name="amount" step="0.01" required 
+                                   class="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-1">Debit Account</label>
+                            <select name="debit_account" required 
+                                    class="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent">
+                                <option value="">Select Account</option>
+                                <option value="1001">Cash (1001)</option>
+                                <option value="1002">Bank Account (1002)</option>
+                                <option value="1100">Accounts Receivable (1100)</option>
+                                <option value="6001">Office Supplies (6001)</option>
+                                <option value="6002">Rent Expense (6002)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-1">Credit Account</label>
+                            <select name="credit_account" required 
+                                    class="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent">
+                                <option value="">Select Account</option>
+                                <option value="1001">Cash (1001)</option>
+                                <option value="1002">Bank Account (1002)</option>
+                                <option value="1100">Accounts Receivable (1100)</option>
+                                <option value="4001">Service Revenue (4001)</option>
+                                <option value="4002">Sales Revenue (4002)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex justify-end space-x-2 pt-2">
+                        <button type="reset" class="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50">
+                            Clear
+                        </button>
+                        <button type="submit" class="bg-primary text-white px-6 py-2 rounded hover:bg-secondary">
+                            Save Transaction
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Transactions List -->
             <div class="bg-white rounded-xl shadow-md p-6">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-xl font-bold">All Transactions</h2>
@@ -121,48 +193,54 @@
         </main>
     </div>
 
-    <!-- Transaction Modal -->
-    <div id="transactionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white rounded-lg p-6 w-full max-w-md">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold">New Transaction</h3>
-                <button id="closeModal" class="text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times"></i>
-                </button>
+    <!-- Transaction Form Template (hidden, used for resetting the form) -->
+    <template id="transactionFormTemplate">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-gray-700 text-sm font-medium mb-1">Date</label>
+                <input type="date" name="date" required 
+                       class="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent">
             </div>
-            <form id="transactionForm">
-                <div class="mb-4">
-                    <label class="block text-gray-700 mb-2">Date</label>
-                    <input type="date" name="date" required class="w-full p-2 border rounded">
-                </div>
-                <div class="mb-4">
-                    <label class="block text-gray-700 mb-2">Description</label>
-                    <input type="text" name="description" required class="w-full p-2 border rounded">
-                </div>
-                <div class="mb-4">
-                    <label class="block text-gray-700 mb-2">Amount</label>
-                    <input type="number" name="amount" step="0.01" required class="w-full p-2 border rounded">
-                </div>
-                <div class="mb-4">
-                    <label class="block text-gray-700 mb-2">Debit Account</label>
-                    <select name="debit_account" required class="w-full p-2 border rounded">
-                        <option value="">Select Account</option>
-                    </select>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-gray-700 mb-2">Credit Account</label>
-                    <select name="credit_account" required class="w-full p-2 border rounded">
-                        <option value="">Select Account</option>
-                    </select>
-                </div>
-                <div class="flex justify-end">
-                    <button type="button" id="cancelTransaction" class="mr-2 px-4 py-2 border border-gray-300 rounded">Cancel</button>
-                    <button type="submit" class="bg-primary text-white px-4 py-2 rounded">Save</button>
-                </div>
-            </form>
+            <div>
+                <label class="block text-gray-700 text-sm font-medium mb-1">Reference</label>
+                <input type="text" name="reference" required 
+                       class="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            <div class="md:col-span-2">
+                <label class="block text-gray-700 text-sm font-medium mb-1">Description</label>
+                <input type="text" name="description" required 
+                       class="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            <div>
+                <label class="block text-gray-700 text-sm font-medium mb-1">Amount</label>
+                <input type="number" name="amount" step="0.01" required 
+                       class="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            <div>
+                <label class="block text-gray-700 text-sm font-medium mb-1">Debit Account</label>
+                <select name="debit_account" required 
+                        class="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <option value="">Select Account</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-gray-700 text-sm font-medium mb-1">Credit Account</label>
+                <select name="credit_account" required 
+                        class="w-full p-2 border rounded focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <option value="">Select Account</option>
+                </select>
+            </div>
         </div>
-    </div>
+        <div class="flex justify-end space-x-2 pt-2">
+            <button type="reset" class="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50">
+                Clear
+            </button>
+            <button type="submit" class="bg-primary text-white px-6 py-2 rounded hover:bg-secondary">
+                Save Transaction
+            </button>
+        </div>
+    </template>
 
-    <script src="app.js"></script>
+    <script src="/static/app.new.js"></script>
 </body>
 </html>
