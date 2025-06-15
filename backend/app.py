@@ -3,9 +3,15 @@ import os
 from dotenv import load_dotenv
 
 from flask_cors import CORS
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory, render_template
+import os
 
-app = Flask(__name__)
+# Get the absolute path to the frontend directory
+frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend'))
+
+app = Flask(__name__, 
+            static_folder=os.path.join(frontend_path, 'static'),
+            template_folder=frontend_path)
 CORS(app)  # This will enable CORS for all routes
 
 
@@ -126,6 +132,19 @@ def handle_error(error):
         'error': str(error),
         'status': getattr(error, 'code', 500)
     }), getattr(error, 'code', 500)
+
+# Serve React Frontend
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    if path != "" and os.path.exists(os.path.join(frontend_path, 'static', path)):
+        return send_from_directory(os.path.join(frontend_path, 'static'), path)
+    elif path != "" and os.path.exists(os.path.join(frontend_path, 'static', path + '.html')):
+        return send_from_directory(os.path.join(frontend_path, 'static'), path + '.html')
+    elif path == "" or path == "/":
+        return send_from_directory(frontend_path, 'static/index.html')
+    else:
+        return send_from_directory(frontend_path, 'static/index.html')
 
 if __name__ == '__main__':
     # Initialize the database

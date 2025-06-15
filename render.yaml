@@ -5,7 +5,10 @@ services:
     buildCommand: |
       pip install --upgrade pip
       cd backend && pip install -e .
-    startCommand: gunicorn backend.app:app
+      # Move frontend files to the correct location
+      mkdir -p /opt/render/project/src/static
+      cp -r frontend/static/* /opt/render/project/src/static/
+    startCommand: gunicorn --chdir backend app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.13
