@@ -1,10 +1,11 @@
 import sqlite3
 import os
+import sys
 from dotenv import load_dotenv
-
 from flask_cors import CORS
-from flask import Flask, jsonify, send_from_directory, render_template
+from flask import Flask, jsonify, send_from_directory, render_template, g, request
 import os
+import traceback
 
 # Get the absolute path to the frontend directory
 frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend'))
@@ -14,124 +15,101 @@ app = Flask(__name__,
             template_folder=frontend_path)
 CORS(app)  # This will enable CORS for all routes
 
-
+# Load environment variables
 load_dotenv()
 
-DATABASE_PATH = os.getenv('DATABASE_PATH', 'accounting.db')
+# Configuration
+app.config.update(
+    DATABASE=os.getenv('DATABASE_PATH', os.path.join(os.path.dirname(__file__), 'accounting.db')),
+    SECRET_KEY=os.getenv('SECRET_KEY', 'dev')
+)
+
+def get_db():
+    """Get a database connection with request context"""
+    if 'db' not in g:
+        try:
+            g.db = sqlite3.connect(app.config['DATABASE'])
+            g.db.row_factory = sqlite3.Row
+            # Enable foreign key constraints
+            g.db.execute('PRAGMA foreign_keys = ON')
+        except sqlite3.Error as e:
+            app.logger.error(f"Database connection error: {str(e)}")
+            raise Exception(f"Failed to connect to database: {str(e)}")
+    return g.db
+
+def close_db(e=None):
+    """Close the database connection"""
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
 
 def init_db():
     """Initialize the database with schema"""
     try:
-        if not os.path.exists(DATABASE_PATH):
-            conn = get_db_connection()
-            with open('schema.sql') as f:
-                conn.executescript(f.read())
-            conn.commit()
-            conn.close()
+        with app.app_context():
+            db = get_db()
+            schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
+            with open(schema_path, 'r', encoding='utf-8') as f:
+                db.executescript(f.read())
+            db.commit()
+            app.logger.info("Database initialized successfully")
     except Exception as e:
+        app.logger.error(f"Failed to initialize database: {str(e)}")
         raise Exception(f"Failed to initialize database: {str(e)}")
-
-def get_db_connection():
-    """Get a database connection"""
-    conn = None
-    try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        conn.row_factory = sqlite3.Row
-        # Enable foreign key constraints
-        conn.execute("PRAGMA foreign_keys = ON")
-        return conn
-    except sqlite3.Error as e:
-        print(f"Database connection error: {str(e)}")
-        if conn:
-            try:
-                conn.close()
-            except:
-                pass
-        raise Exception(f"Failed to connect to database: {str(e)}")
-    except Exception as e:
-        print(f"Unexpected error in get_db_connection: {str(e)}")
-        if conn:
-            try:
-                conn.close()
-            except:
-                pass
-        raise
 
 def execute_query(query, args=(), fetchone=False, fetchall=False, commit=False):
     """Execute a SQL query with options"""
-    conn = None
+    db = get_db()
     cursor = None
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Print the query and args for debugging
-        print(f"Executing query: {query}")
-        print(f"With args: {args}")
-        
+        cursor = db.cursor()
         cursor.execute(query, args)
         
         if commit:
-            conn.commit()
-            last_id = cursor.lastrowid
-            cursor.close()
-            conn.close()
-            return last_id
-            
+            db.commit()
+            return cursor.lastrowid if 'INSERT' in query.upper() else cursor.rowcount
+        
         if fetchone:
             result = cursor.fetchone()
-            cursor.close()
-            conn.close()
             if result is None:
                 return None
-            # Convert sqlite3.Row to dict
             return dict(zip([d[0] for d in cursor.description], result))
-            
-        if fetchall:
+        elif fetchall:
             results = cursor.fetchall()
-            cursor.close()
-            conn.close()
-            # Convert sqlite3.Row objects to dicts
             return [dict(zip([d[0] for d in cursor.description], row)) for row in results]
             
-        cursor.close()
-        conn.close()
         return None
-        
     except sqlite3.Error as e:
-        print(f"Database error: {str(e)}")
-        if conn:
-            conn.rollback()
-        raise Exception(f"Database query failed: {str(e)}")
-    except Exception as e:
-        print(f"Unexpected error: {str(e)}")
-        if conn:
-            conn.rollback()
-        raise
+        app.logger.error(f"Database error: {str(e)}")
+        if db:
+            db.rollback()
+        raise Exception(f"Database error: {str(e)}")
     finally:
-        # Clean up resources
         if cursor:
             cursor.close()
-        if conn:
-            conn.close()
 
 # Import and register blueprints
-from routes.auth import auth_bp
-from routes.account import accounts_bp  # Changed from account_bp to accounts_bp
-from routes.report import reports_bp  # Changed from report_bp to reports_bp
-from routes.transaction import transactions_bp
+from routes import auth_bp, account_bp, report_bp, transaction_bp, invoices_bp
 
-app.register_blueprint(auth_bp, url_prefix='/api')
-app.register_blueprint(accounts_bp, url_prefix='/api')
-app.register_blueprint(reports_bp, url_prefix='/api')  # Changed from report_bp to reports_bp
-app.register_blueprint(transactions_bp, url_prefix='/api')
+# Register blueprints with URL prefixes
+app.register_blueprint(auth_bp, url_prefix='/api/auth')
+app.register_blueprint(account_bp, url_prefix='/api/accounts')
+app.register_blueprint(transaction_bp, url_prefix='/api/transactions')
+app.register_blueprint(invoices_bp, url_prefix='/api/invoices')
+app.register_blueprint(report_bp, url_prefix='/api/reports')
 
 @app.errorhandler(Exception)
 def handle_error(error):
-    return jsonify({
-        'error': str(error),
-        'status': getattr(error, 'code', 500)
-    }), getattr(error, 'code', 500)
+    if request.path.startswith('/api/'):
+        response = jsonify({
+            'success': False,
+            'error': getattr(error, 'name', 'Internal Server Error'),
+            'message': str(getattr(error, 'description', str(error))),
+            'status': getattr(error, 'code', 500)
+        })
+        response.status_code = getattr(error, 'code', 500)
+        return response
+    return error
 
 # Serve React Frontend
 @app.route('/', defaults={'path': ''})

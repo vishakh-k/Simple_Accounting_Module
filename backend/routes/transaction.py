@@ -1,40 +1,58 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from datetime import datetime
 from models import get_transactions, create_transaction, get_account, get_db_connection
+from utils.error_handlers import handle_api_error
 
 transactions_bp = Blueprint('transactions', __name__)
 
 @transactions_bp.route('/transactions', methods=['GET'])
+@handle_api_error
 def get_transactions_route():
-    try:
-        transactions = get_transactions()
-        return jsonify([{
+    transactions = get_transactions()
+    return jsonify({
+        'success': True,
+        'data': [{
             'id': t['id'],
             'date': t['date'],
             'description': t['description'],
             'debit_account': t['debit_account'],
             'credit_account': t['credit_account'],
-            'amount': t['amount'],
+            'amount': float(t['amount']),
             'status': t['status'],
-            'debit_account_name': t['debit_account_name'],
-            'credit_account_name': t['credit_account_name']
-        } for t in transactions]), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+            'debit_account_name': t.get('debit_account_name', ''),
+            'credit_account_name': t.get('credit_account_name', '')
+        } for t in transactions],
+        'count': len(transactions)
+    })
 
 @transactions_bp.route('/transactions', methods=['POST'])
+@handle_api_error
 def create_transaction_route():
-    data = request.json
-    print("Received transaction data:", data)  # Debug log
+    data = request.get_json()
     
+    if not data:
+        return jsonify({
+            'success': False,
+            'error': 'Invalid Request',
+            'message': 'No data provided',
+            'status': 400
+        }), 400
+        
     # Check if this is a double-entry transaction
     if 'entries' in data:
         return create_double_entry_transaction(data)
         
     # Handle single transaction format
     required_fields = ['date', 'description', 'debit_account', 'credit_account', 'amount']
-    if not data or any(field not in data for field in required_fields):
-        return jsonify({"error": "Missing required fields: date, description, debit_account, credit_account, amount"}), 400
+    missing_fields = [field for field in required_fields if field not in data or not data[field]]
+    
+    if missing_fields:
+        return jsonify({
+            'success': False,
+            'error': 'Validation Error',
+            'message': f'Missing required fields: {', '.join(missing_fields)}',
+            'status': 400
+        }), 400
         
     try:
         # Set default status to 'posted' if not provided

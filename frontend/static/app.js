@@ -33,7 +33,7 @@ function initElements() {
 }
 
 // Show notification message
-function showNotification(message, type = 'info') {
+function showNotification(message, type = 'info', duration = 5000) {
     // Create notification element if it doesn't exist
     let notification = document.getElementById('notification');
     if (!notification) {
@@ -44,11 +44,22 @@ function showNotification(message, type = 'info') {
     }
     
     // Set notification content and style based on type
-    notification.textContent = message;
+    notification.innerHTML = `
+        <div class="flex items-start">
+            <div class="flex-1">
+                <p class="font-medium">${type === 'error' ? 'Error' : type === 'success' ? 'Success' : 'Info'}</p>
+                <p class="text-sm">${message}</p>
+            </div>
+            <button onclick="this.closest('#notification').classList.add('translate-x-full')" 
+                    class="ml-4 text-white hover:text-gray-200 focus:outline-none">
+                ✕
+            </button>
+        </div>`;
+    
     notification.className = `fixed top-4 right-4 p-4 rounded shadow-lg text-white z-50 transition-all duration-300 ${
         type === 'error' ? 'bg-red-500' : 
         type === 'success' ? 'bg-green-500' : 'bg-blue-500'
-    }`;
+    } w-80`;
     
     // Show notification
     setTimeout(() => {
@@ -56,11 +67,13 @@ function showNotification(message, type = 'info') {
         notification.classList.add('translate-x-0');
     }, 10);
     
-    // Hide notification after 5 seconds
-    setTimeout(() => {
-        notification.classList.remove('translate-x-0');
-        notification.classList.add('translate-x-full');
-    }, 5000);
+    // Hide notification after specified duration
+    if (duration > 0) {
+        setTimeout(() => {
+            notification.classList.remove('translate-x-0');
+            notification.classList.add('translate-x-full');
+        }, duration);
+    }
 }
 
 // Format currency
@@ -80,24 +93,35 @@ function calculatePercentageChange(current, previous) {
 // Load transactions from the server
 async function loadTransactions() {
     try {
+        showLoading(true);
         const response = await fetch('/api/transactions', {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
         });
         
-        if (response.ok) {
-            transactions = await response.json();
-            // Update the transactions table
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to load transactions');
+        }
+        
+        if (data.success && data.data) {
+            transactions = data.data;
             updateTransactionsTable(transactions);
             return transactions;
         } else {
-            throw new Error('Failed to load transactions');
+            throw new Error('Invalid response format from server');
         }
     } catch (error) {
         console.error('Error loading transactions:', error);
-        showNotification('Failed to load transactions', 'error');
+        showNotification(error.message || 'Failed to load transactions', 'error');
         return [];
+    } finally {
+        showLoading(false);
     }
 }
 

@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     UNIQUE(code, name)
 );
 
+-- Transactions table
 CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     date DATE NOT NULL,
@@ -31,10 +32,11 @@ CREATE TABLE IF NOT EXISTS transactions (
     credit_account INTEGER NOT NULL,
     amount REAL NOT NULL,
     status TEXT CHECK(status IN ('pending', 'completed')) DEFAULT 'pending',
-    FOREIGN KEY (debit_account) REFERENCES accounts(id),
-    FOREIGN KEY (credit_account) REFERENCES accounts(id)
+    FOREIGN KEY (debit_account) REFERENCES accounts(id) ON DELETE CASCADE,
+    FOREIGN KEY (credit_account) REFERENCES accounts(id) ON DELETE CASCADE
 );
 
+-- Invoices table
 CREATE TABLE IF NOT EXISTS invoices (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     invoice_number TEXT NOT NULL UNIQUE,
@@ -44,44 +46,12 @@ CREATE TABLE IF NOT EXISTS invoices (
     status TEXT CHECK(status IN ('pending', 'paid', 'overdue')) NOT NULL
 );
 
+-- Reports table
 CREATE TABLE IF NOT EXISTS reports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     report_type TEXT CHECK(report_type IN ('balance_sheet', 'income_statement', 'cash_flow')) NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL,
-    email TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS invoices (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    invoice_number TEXT NOT NULL UNIQUE,
-    client TEXT NOT NULL,
-    date DATE NOT NULL,
-    amount REAL NOT NULL,
-    status TEXT CHECK(status IN ('pending', 'paid', 'overdue')) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS reports (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    report_type TEXT CHECK(report_type IN ('balance_sheet', 'income_statement', 'cash_flow')) NOT NULL,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL,
-    email TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
